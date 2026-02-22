@@ -4,15 +4,28 @@ from PIL import Image, ImageOps, ImageDraw, ImageFont
 
 # Configuración de dimensiones (Tamaño Carta a 300 DPI)
 ANCHO_CARTA = 2550 
-ALTO_CARTA = 3300
-MARGEN = 100
+ALTO_CARTA = 2818 # 3300
+MARGEN = 0
 ESPACIADO = 20
+
+MAX_TEXT_LENGTH = 30
+FONT_SIZE = 40
+
+def format_text(text: str) -> tuple[str]:
+    words = text.strip().upper().split(" ")
+    first_line = list()
+
+    while len(words) > 0 and len(" ".join(first_line + [words[0]])) < MAX_TEXT_LENGTH:
+        first_line.append(words.pop(0))
+
+    return (" ".join(first_line), " ".join(words)[:MAX_TEXT_LENGTH].strip(),)
 
 def generar_loterias(ruta_imagenes, carpeta_salida, cantidad_cartones=120):
     # 1. Cargar rutas de imágenes
     formatos=('.jpg', '.jpeg', '.png', '.bmp')
     imagenes = [os.path.join(ruta_imagenes, f) for f in os.listdir(ruta_imagenes) 
                 if f.lower().endswith(formatos)]
+    imagenes.sort()
     
     if len(imagenes) < 16:
         print("¡Error! Necesitas al menos 16 imágenes en la carpeta.")
@@ -27,17 +40,15 @@ def generar_loterias(ruta_imagenes, carpeta_salida, cantidad_cartones=120):
     ancho_celda = ancho_disponible // 4
     alto_celda = alto_disponible // 4
     # Altura de la banda de texto (20% de la celda)
-    alto_banda = int(alto_celda * 0.20)
-    tamano_fuente = 60
-    caracteres_texto = 15
+    alto_banda = int(alto_celda * 0.15)
 
     # Intentar cargar una fuente (Arial o similar). Si no, usa la default.
     try:
         # En Windows suele ser 'arial.ttf', en Mac 'Arial.ttf'
-        fuente = ImageFont.truetype("arial.ttf", tamano_fuente)
+        fuente = ImageFont.truetype("arial.ttf", FONT_SIZE)
     except:
         print('No se logró cargar fuente')
-        fuente = ImageFont.load_default(tamano_fuente)
+        fuente = ImageFont.load_default(FONT_SIZE)
 
     for i in range(cantidad_cartones):
         # Crear lienzo transparente
@@ -45,12 +56,14 @@ def generar_loterias(ruta_imagenes, carpeta_salida, cantidad_cartones=120):
         draw = ImageDraw.Draw(carton)
 
         # Seleccionar 16 imágenes al azar sin repetir para este cartón
-        seleccion = random.sample(imagenes, 16)
+        # seleccion = random.sample(imagenes, 16)
+        seleccion = (imagenes+imagenes)[i*16: (i+1)*16]
         
         for fila in range(4):
             for col in range(4):
                 img_path = seleccion[fila * 4 + col]
-                nombre_texto = os.path.splitext(os.path.basename(img_path))[0].replace("_", " ").upper()[:caracteres_texto]
+                nombre_texto = os.path.splitext(os.path.basename(img_path))[0].replace("_", " ")
+                new_text = format_text(nombre_texto)
 
                 img = Image.open(img_path)
 
@@ -60,24 +73,41 @@ def generar_loterias(ruta_imagenes, carpeta_salida, cantidad_cartones=120):
                 # ImageOps.fit recorta y redimensiona para llenar el espacio exacto
                 img_procesada = ImageOps.fit(img, (ancho_celda, alto_celda), Image.Resampling.LANCZOS)
 
-
                 # 2. Crear la banda negra semitransparente
                 # El color (0,0,0,128) es Negro con 50% de transparencia
                 overlay = Image.new('RGBA', img_procesada.size, (0, 0, 0, 0))
                 draw_ov = ImageDraw.Draw(overlay)
                 # print(img_procesada.size)
                 coords = [0, alto_celda - alto_banda ,ancho_celda,alto_celda]
-                draw_ov.rectangle(coords, fill=(0, 0, 0, 160))
+                draw_ov.rectangle(coords, fill=(255, 255, 255, 160))
 
                 # 3. Dibujar el texto sobre la banda
-                bbox = draw_ov.textbbox((0, 0), nombre_texto, font=fuente)
-                ancho_txt = bbox[2] - bbox[0]
-                alto_txt = bbox[3] - bbox[1]
-                
-                x_txt = (ancho_celda - ancho_txt) // 2
-                y_txt = (alto_celda - (alto_banda // 2)) - (alto_txt // 2) - 5
-                
-                draw_ov.text((x_txt, y_txt), nombre_texto, fill="white", font=fuente)
+
+                if new_text[1] == "":
+                    bbox = draw_ov.textbbox((0, 0), new_text[0], font=fuente)
+                    ancho_txt = bbox[2] - bbox[0]
+                    alto_txt = bbox[3] - bbox[1]
+
+                    x_txt = (ancho_celda - ancho_txt) // 2
+                    y_txt = (alto_celda - (alto_banda // 2)) - (alto_txt // 2) - 5
+                    
+                    draw_ov.text((x_txt, y_txt), new_text[0], fill="black", font=fuente)
+                else:
+                    bbox = draw_ov.textbbox((0, 0), new_text[0], font=fuente)
+                    ancho_txt = bbox[2] - bbox[0]
+                    alto_txt = bbox[3] - bbox[1]
+
+                    x_txt = (ancho_celda - ancho_txt) // 2
+                    y_txt = (alto_celda - (alto_banda // 4) * 3) - (alto_txt // 2) - 5
+                    draw_ov.text((x_txt, y_txt), new_text[0], fill="black", font=fuente)
+
+                    bbox = draw_ov.textbbox((0, 0), new_text[1], font=fuente)
+                    ancho_txt = bbox[2] - bbox[0]
+                    alto_txt = bbox[3] - bbox[1]
+
+                    x_txt = (ancho_celda - ancho_txt) // 2
+                    y_txt = (alto_celda - (alto_banda // 4)) - (alto_txt // 2) - 5
+                    draw_ov.text((x_txt, y_txt), new_text[1], fill="black", font=fuente)
                 
                 # Combinar imagen y banda
                 img_final = Image.alpha_composite(img_procesada, overlay)
