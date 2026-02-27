@@ -20,7 +20,7 @@ def format_text(text: str) -> tuple[str]:
 
     return (" ".join(first_line), " ".join(words)[:MAX_TEXT_LENGTH].strip(),)
 
-def generar_loterias(ruta_imagenes, carpeta_salida, cantidad_cartones=120):
+def generar_loterias(ruta_imagenes, carpeta_salida, cartones: list[list[int]]):
     # 1. Cargar rutas de imágenes
     formatos=('.jpg', '.jpeg', '.png', '.bmp')
     imagenes = [os.path.join(ruta_imagenes, f) for f in os.listdir(ruta_imagenes) 
@@ -50,18 +50,18 @@ def generar_loterias(ruta_imagenes, carpeta_salida, cantidad_cartones=120):
         print('No se logró cargar fuente')
         fuente = ImageFont.load_default(FONT_SIZE)
 
-    for i in range(cantidad_cartones):
+    for i, carton_indexes in enumerate(cartones):
         # Crear lienzo transparente
         carton = Image.new('RGBA', (ANCHO_CARTA, ALTO_CARTA), (0, 0, 0, 0))
         draw = ImageDraw.Draw(carton)
 
         # Seleccionar 16 imágenes al azar sin repetir para este cartón
-        # seleccion = random.sample(imagenes, 16) 
-        seleccion = (imagenes+imagenes)[i*16: (i+1)*16]
+        random.shuffle(carton_indexes) 
+        # seleccion = (imagenes+imagenes)[i*16: (i+1)*16]
         
         for fila in range(4):
             for col in range(4):
-                img_path = seleccion[fila * 4 + col]
+                img_path = imagenes[carton_indexes[fila * 4 + col]]
                 nombre_texto = os.path.splitext(os.path.basename(img_path))[0].replace("_", " ")
                 new_text = format_text(nombre_texto)
 
@@ -79,7 +79,7 @@ def generar_loterias(ruta_imagenes, carpeta_salida, cantidad_cartones=120):
                 draw_ov = ImageDraw.Draw(overlay)
                 # print(img_procesada.size)
                 coords = [0, alto_celda - alto_banda ,ancho_celda,alto_celda]
-                draw_ov.rectangle(coords, fill=(255, 255, 255, 160))
+                draw_ov.rectangle(coords, fill=(255, 255, 255, 180))
 
                 # 3. Dibujar el texto sobre la banda
 
@@ -120,7 +120,25 @@ def generar_loterias(ruta_imagenes, carpeta_salida, cantidad_cartones=120):
 
         # Guardar resultado
         carton.save(f"{carpeta_salida}/carton_{i+1}.png")
-        print(f"Generando cartón {i+1}/{cantidad_cartones}")
+        print(f"Generando cartón {i+1}/{len(cartones)}")
+
+def generate_samples(number_of_options: int, length_of_selection: int, sample_size: int) -> list[list[int]]:
+    pool = list(range(number_of_options))
+
+    unique_combinations = set()
+
+    while len(unique_combinations) < sample_size:
+        # 1. Pick 16 random numbers
+        combo = random.sample(pool, length_of_selection)
+        
+        # 2. Sort and convert to a tuple so it's "hashable" (can be stored in a set)
+        combo_tuple = tuple(sorted(combo))
+        
+        # 3. Add to the set (if it's already there, the set size won't grow)
+        unique_combinations.add(combo_tuple)
+        
+    return [list(c) for c in unique_combinations]
 
 if __name__ == "__main__":
-    generar_loterias("imagenes", "resultados")
+    cartones = generate_samples(41, 16, 100)
+    generar_loterias("imagenes", "resultados", cartones)
