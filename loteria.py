@@ -4,12 +4,12 @@ from PIL import Image, ImageOps, ImageDraw, ImageFont
 
 # Configuración de dimensiones (Tamaño Carta a 300 DPI)
 ANCHO_CARTA = 2550 
-ALTO_CARTA = 2818 # 3300
+ALTO_CARTA = int(ANCHO_CARTA * 26 / 19)
 MARGEN = 0
 ESPACIADO = 20
 
-MAX_TEXT_LENGTH = 30
-FONT_SIZE = 40
+MAX_TEXT_LENGTH = 20
+FONT_SIZE = 50
 
 def format_text(text: str) -> tuple[str]:
     words = text.strip().upper().split(" ")
@@ -45,7 +45,7 @@ def generar_loterias(ruta_imagenes, carpeta_salida, cantidad_cartones=120):
     # Intentar cargar una fuente (Arial o similar). Si no, usa la default.
     try:
         # En Windows suele ser 'arial.ttf', en Mac 'Arial.ttf'
-        fuente = ImageFont.truetype("arial.ttf", FONT_SIZE)
+        fuente = ImageFont.truetype("font/ARIALBD.TTF", FONT_SIZE)
     except:
         print('No se logró cargar fuente')
         fuente = ImageFont.load_default(FONT_SIZE)
@@ -56,7 +56,7 @@ def generar_loterias(ruta_imagenes, carpeta_salida, cantidad_cartones=120):
         draw = ImageDraw.Draw(carton)
 
         # Seleccionar 16 imágenes al azar sin repetir para este cartón
-        # seleccion = random.sample(imagenes, 16)
+        # seleccion = random.sample(imagenes, 16) 
         seleccion = (imagenes+imagenes)[i*16: (i+1)*16]
         
         for fila in range(4):
